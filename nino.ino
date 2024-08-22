@@ -1,6 +1,22 @@
 #include <math.h>
+#include <ZxTFT_ILI9488.h> //Hardware-specific library
+#include <XPT2046_Touchscreen.h>
+#include <SPI.h>
 
-const int thermistorPin = A1;  // Pin connected to the thermistor (Analog)
+#define TFT_CS         10
+#define TFT_DC         9
+#define TFT_RST        8
+#define CS_PIN  7
+
+ZxTFT_ILI9488 tft(TFT_CS, TFT_DC, TFT_RST); // my epd connection shield for Arduino Due
+XPT2046_Touchscreen ts(CS_PIN);
+
+// Variáveis para armazenar a última posição e pressão
+int16_t last_x = -1;
+int16_t last_y = -1;
+int16_t last_z = -1;
+
+const int thermistorPin = A0;  // Pin connected to the thermistor (Analog)
 const int seriesResistor = 10000;  // Value of the series resistor (10K ohms)
 const float nominalResistance = 100000;  // Resistance of the thermistor at 25 degrees C (100K ohms)
 const float nominalTemperature = 25;  // Nominal temperature (25 degrees C)
@@ -8,9 +24,9 @@ const float bCoefficient = 3950;  // Beta coefficient of the thermistor
 const float supplyVoltage = 5.0;  // Supply voltage (5V)
 const int adcMax = 1023;  // Maximum ADC value
 
-const int fanControlPin = 9;  // PWM control pin for the fan (Digital, PWM-capable)
+const int fanControlPin = 3;  // PWM control pin for the fan (Digital, PWM-capable)
 const int fanTachPin = 2;  // Tachometer pin for the fan (Digital, Interrupt-capable)
-const int relayPin = 8;  // Pin connected to the relay for heating (Digital)
+const int relayPin = 5;  // Pin connected to the relay for heating (Digital)
 const int startButtonPin = 4;  // Pin connected to the start button (Digital)
 const int abortButtonPin = 5;  // Pin connected to the abort button (Digital)
 
@@ -37,7 +53,6 @@ int contadorloop = 10;
 // Variables to track temperature change rate
 float previousTemperature = 0.0;
 unsigned long previousTime = 0;
-
 void setup() {
   Serial.begin(9600);  // Initialize serial communication
 
@@ -50,15 +65,60 @@ void setup() {
   
   // Ensure the fan starts at its lowest speed
   analogWrite(fanControlPin, 0);
+
+  pinMode(TFT_CS, OUTPUT);
+  pinMode(7, OUTPUT);
+  digitalWrite(TFT_CS, HIGH);
+  digitalWrite(7, HIGH);
+  tft.init();
+  ts.begin();
+  tft.fillScreen(0x0000);
+  tft.setTextColor(0xFFFF);
+  tft.setTextSize(2);
+  tft.setCursor(0, 0);
+  tft.println("Touch the screen...");
+  // runPCR();
 }
 
 void loop() {
+  if (ts.touched()) {
+    TS_Point p = ts.getPoint();
+    // Mapear os valores de X e Y para o tamanho da tela
+    int16_t x = map(p.x, 0, 4095, 0, tft.width());
+    int16_t y = map(p.y, 0, 4095, 0, tft.height());
+    int16_t z = p.z;
+
+    // Verificar se os valores mudaram
+    if (x != last_x || y != last_y || z != last_z) {
+      // Limpar apenas os valores antigos
+      tft.setTextColor(0x0000);  // Define a cor do texto para a cor de fundo para "apagar"
+      tft.setCursor(0, 50);
+      tft.setTextSize(2);
+      tft.print("X: ");
+      tft.print(last_x);
+      tft.print(" Y: ");
+      tft.print(last_y);
+      // Exibir os novos valores
+      tft.setTextColor(0xFFFF);  // Define a cor do texto de volta para branco
+      tft.setCursor(0, 50);
+      tft.setTextSize(2);
+      tft.print("X: ");
+      tft.print(x);
+      tft.print(" Y: ");
+      tft.print(y);
+      last_x = x;
+      last_y = y;
+      last_z = z;
+    }
+  }
   if (digitalRead(startButtonPin) == LOW && !pcrRunning) {
+  // if (forcastart == 1 && !pcrRunning) {
     Serial.println("Botao de inicio ativado");
     pcrRunning = true;
     pcrAborted = false;
     runPCR();
   }
+  
 
   if (digitalRead(abortButtonPin) == LOW && pcrRunning) {
     Serial.println("Botao de parada pressionado");
@@ -107,13 +167,16 @@ void controlTemperature(float targetTemp, unsigned long duration) {
     float temperatureC = readTemperature();
    
     if (temperatureC < targetTemp - slowDownRange) {
-      digitalWrite(relayPin, HIGH);  // Turn on heating at full power
+      // digitalWrite(relayPin, HIGH);  // Turn on heating at full power
+      analogWrite(relayPin, 255);
       analogWrite(fanControlPin, 0);  // Turn off fan
     } else if (temperatureC < targetTemp) {
-      digitalWrite(relayPin, LOW);  // Turn off heating
+      // digitalWrite(relayPin, LOW);  // Turn off heating
+      analogWrite(relayPin, 0);
       analogWrite(fanControlPin, 0);  // Turn off fan
     } else if (temperatureC > targetTemp) {
-      digitalWrite(relayPin, LOW);  // Turn off heating
+      // digitalWrite(relayPin, LOW);  // Turn off heating
+      analogWrite(relayPin, 0);
       analogWrite(fanControlPin, 255);  // Turn on fan at full speed
     }
 
