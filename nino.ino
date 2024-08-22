@@ -27,8 +27,6 @@ const int adcMax = 1023;  // Maximum ADC value
 const int fanControlPin = 3;  // PWM control pin for the fan (Digital, PWM-capable)
 const int fanTachPin = 2;  // Tachometer pin for the fan (Digital, Interrupt-capable)
 const int relayPin = 5;  // Pin connected to the relay for heating (Digital)
-const int startButtonPin = 4;  // Pin connected to the start button (Digital)
-const int abortButtonPin = 5;  // Pin connected to the abort button (Digital)
 
 volatile int fanTachCounter = 0;
 unsigned long previousMillis = 0;
@@ -59,8 +57,6 @@ void setup() {
   pinMode(fanControlPin, OUTPUT);  // Set the fan control pin as output
   pinMode(fanTachPin, INPUT_PULLUP);  // Set the fan tachometer pin as input with pullup resistor
   pinMode(relayPin, OUTPUT);  // Set the relay pin as output
-  pinMode(startButtonPin, INPUT_PULLUP);  // Set the start button pin as input with pullup resistor
-  pinMode(abortButtonPin, INPUT_PULLUP);  // Set the abort button pin as input with pullup resistor
   attachInterrupt(digitalPinToInterrupt(fanTachPin), fanTachISR, FALLING);  // Attach an interrupt to the tachometer pin
   
   // Ensure the fan starts at its lowest speed
@@ -111,21 +107,21 @@ void loop() {
       last_z = z;
     }
   }
-  if (digitalRead(startButtonPin) == LOW && !pcrRunning) {
-  // if (forcastart == 1 && !pcrRunning) {
-    Serial.println("Botao de inicio ativado");
-    pcrRunning = true;
-    pcrAborted = false;
-    runPCR();
-  }
+  // if (digitalRead(startButtonPin) == LOW && !pcrRunning) {
+  // // if (forcastart == 1 && !pcrRunning) {
+  //   Serial.println("Botao de inicio ativado");
+  //   pcrRunning = true;
+  //   pcrAborted = false;
+  //   runPCR();
+  // }
   
 
-  if (digitalRead(abortButtonPin) == LOW && pcrRunning) {
-    Serial.println("Botao de parada pressionado");
-    pcrAborted = true;
-    pcrRunning = false;
-    stopAllSystems();
-  }
+  // if (digitalRead(abortButtonPin) == LOW && pcrRunning) {
+  //   Serial.println("Botao de parada pressionado");
+  //   pcrAborted = true;
+  //   pcrRunning = false;
+  //   stopAllSystems();
+  // }
 
   if (!pcrRunning) {
     analogWrite(fanControlPin, 0);  // Ensure the fan is at the lowest speed when not running
@@ -196,11 +192,11 @@ void controlTemperature(float targetTemp, unsigned long duration) {
       contador = 0;
     }
     // Verifique o botão de abortar a cada iteração do loop
-    if (digitalRead(abortButtonPin) == LOW) {
-      pcrAborted = true;
-      stopAllSystems();
-      return;
-    }
+    // if (digitalRead(abortButtonPin) == LOW) {
+    //   pcrAborted = true;
+    //   stopAllSystems();
+    //   return;
+    // }
 
     delay(100);  // Reduza o atraso para permitir a verificação mais frequente do botão de abortar
 
@@ -247,11 +243,11 @@ void controlTemperature(float targetTemp, unsigned long duration) {
       contador = 0;
     }
     // Verifique o botão de abortar a cada iteração do loop
-    if (digitalRead(abortButtonPin) == LOW) {
-      pcrAborted = true;
-      stopAllSystems();
-      break;
-    }
+    // if (digitalRead(abortButtonPin) == LOW) {
+    //   pcrAborted = true;
+    //   stopAllSystems();
+    //   break;
+    // }
 
     delay(100);  // Reduza o atraso para permitir a verificação mais frequente do botão de abortar
   }
