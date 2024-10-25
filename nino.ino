@@ -22,6 +22,7 @@ const int adcMax = 1023;
 const int fanControlPin = 3;
 const int fanTachPin = 2;
 const int platePin = 5;
+const int topHeaterPin = 6;
 
 volatile int fanTachCounter = 0;
 
@@ -36,9 +37,11 @@ unsigned long extensionTime = 10000; // 10 segundos para testes
 float slowDownRange = 12.0;
 bool pcrRunning = false;
 bool pcrAborted = false;
+bool topHeaterOn = false;
 
-int startButtonX = 40, startButtonY = 10, startButtonW = 120, startButtonH = 50;
-int stopButtonX = 180, stopButtonY = 10, stopButtonW = 120, stopButtonH = 50;
+int startButtonX = 10, startButtonY = 10, startButtonW = 100, startButtonH = 50;
+int stopButtonX = 120, stopButtonY = 10, stopButtonW = 100, stopButtonH = 50;
+int topHeaterButtonX = 230, topHeaterButtonY = 10, topHeaterButtonW = 80, topHeaterButtonH = 50;
 
 const int maxPoints = 100;
 float temperatureHistory[maxPoints];
@@ -57,6 +60,7 @@ void setup() {
   pinMode(fanControlPin, OUTPUT);
   pinMode(fanTachPin, INPUT_PULLUP);
   pinMode(platePin, OUTPUT);
+  pinMode(topHeaterPin, OUTPUT);
   attachInterrupt(digitalPinToInterrupt(fanTachPin), fanTachISR, FALLING);
 
   analogWrite(fanControlPin, 0);
@@ -90,19 +94,36 @@ void loop() {
     TS_Point p = ts.getPoint();
     int16_t x = p.x;
     int16_t y = p.y;
-
-    if (x > 357 && x < 665 && y > 1960 && y < 3330 && !pcrRunning) {
+    Serial.print("x: ");
+    Serial.print(x);
+    Serial.print(", y: ");
+    Serial.println(y);
+    // x = map(x, 200, 3800, 0, 320); // Ajuste do mapeamento do toque
+    // y = map(y, 200, 3800, 0, 480);
+    // Serial.print(" x: ");
+    // Serial.print(x);
+    // Serial.print(", y: ");
+    // Serial.println(y);
+    // if (x > startButtonX && x < (startButtonX + startButtonW) && y > startButtonY && y < (startButtonY + startButtonH) && !pcrRunning) {
+    if ((x > 320 && x < 688 && y < 3760 & y > 2700) && !pcrRunning) {
       Serial.println("Iniciando PCR...");
       pcrRunning = true;
       pcrAborted = false;
       runPCR();
     }
 
-    if (x > 357 && x < 665 && y > 380 && y < 1743 && pcrRunning) {
+    if (x > stopButtonX && x < (stopButtonX + stopButtonW) && y > stopButtonY && y < (stopButtonY + stopButtonH) && pcrRunning) {
       Serial.println("Abortando PCR...");
       pcrAborted = true;
       pcrRunning = false;
       stopAllSystems();
+    }
+    if (x > 320 && x < 688 && y < 1160 & y > 300){
+    // if (x > topHeaterButtonX && x < (topHeaterButtonX + topHeaterButtonW) && y > topHeaterButtonY && y < (topHeaterButtonY + topHeaterButtonH)) {
+      Serial.println("Heater ON/OFF");
+      topHeaterOn = !topHeaterOn;
+      analogWrite(topHeaterPin, topHeaterOn ? 100 : 0);
+      drawTopHeaterButton();
     }
   }
 
@@ -127,13 +148,22 @@ void updateTemperature() {
 void drawButtons() {
   tft.fillRect(startButtonX, startButtonY, startButtonW, startButtonH, 0x07E0);
   tft.setTextColor(0x0000);
-  tft.setCursor(startButtonX + 10, startButtonY + 20);
-  tft.print("  START");
+  tft.setCursor(startButtonX + 22, startButtonY + 20);
+  tft.print("START");
 
   tft.fillRect(stopButtonX, stopButtonY, stopButtonW, stopButtonH, 0xF800);
   tft.setTextColor(0xFFFF);
-  tft.setCursor(stopButtonX + 10, stopButtonY + 20);
-  tft.print("  STOP");
+  tft.setCursor(stopButtonX + 30, stopButtonY + 20);
+  tft.print("STOP");
+
+  drawTopHeaterButton();
+}
+
+void drawTopHeaterButton() {
+  tft.fillRect(topHeaterButtonX, topHeaterButtonY, topHeaterButtonW, topHeaterButtonH, topHeaterOn ? 0xFDA0 : 0x001F); // Laranja para ON, Azul para OFF
+  tft.setTextColor(0xFFFF);
+  tft.setCursor(topHeaterButtonX + 35, topHeaterButtonY + 20);
+  tft.print("H");
 }
 
 void runPCR() {
@@ -204,7 +234,14 @@ void controlTemperature(float targetTemp, unsigned long duration) {
       TS_Point p = ts.getPoint();
       int16_t x = p.x;
       int16_t y = p.y;
-      if (x > 357 && x < 665 && y > 380 && y < 1743) {
+      Serial.print("x: ");
+      Serial.print(x);
+      Serial.print(", y: ");
+      Serial.println(y);
+      // x = map(x, 200, 3800, 0, 320); // Ajuste do mapeamento do toque
+      // y = map(y, 200, 3800, 0, 480);
+      if (x > 320 && x < 688 && y < 2400 & y > 1345) {
+      // if (x > stopButtonX && x < (stopButtonX + stopButtonW) && y > stopButtonY && y < (stopButtonY + stopButtonH)) {
         Serial.println("Abortando PCR...");
         pcrAborted = true;
         stopAllSystems();
@@ -289,6 +326,11 @@ void drawChart() {
 void stopAllSystems() {
   pcrRunning = false;
   analogWrite(platePin, 0);
+  analogWrite(topHeaterPin, 0);
+  topHeaterOn = false;
+  analogWrite(topHeaterPin, 0);
+  drawTopHeaterButton();
+
   Serial.println("All systems stopped.");
 
   // Liga o ventilador até a temperatura ficar abaixo de 40 graus
