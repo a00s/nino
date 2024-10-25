@@ -21,7 +21,7 @@ const int adcMax = 1023;
 
 const int fanControlPin = 3;
 const int fanTachPin = 2;
-const int relayPin = 5;
+const int platePin = 5;
 
 volatile int fanTachCounter = 0;
 
@@ -56,7 +56,7 @@ void setup() {
 
   pinMode(fanControlPin, OUTPUT);
   pinMode(fanTachPin, INPUT_PULLUP);
-  pinMode(relayPin, OUTPUT);
+  pinMode(platePin, OUTPUT);
   attachInterrupt(digitalPinToInterrupt(fanTachPin), fanTachISR, FALLING);
 
   analogWrite(fanControlPin, 0);
@@ -173,16 +173,16 @@ void controlTemperature(float targetTemp, unsigned long duration) {
     if (tempDifference > 0.5) {
       int power = map(tempDifference, 0, slowDownRange, 0, 255);
       power = constrain(power, 0, 255);
-      analogWrite(relayPin, power);
+      analogWrite(platePin, power);
       analogWrite(fanControlPin, 0);
       reachedTargetTemp = false;
     } else if (tempDifference < -0.5) {
-      analogWrite(relayPin, 0);
+      analogWrite(platePin, 0);
       analogWrite(fanControlPin, 255);
       reachedTargetTemp = false;
     } else {
       // Se a temperatura está dentro da faixa alvo, tente manter
-      analogWrite(relayPin, 0);
+      analogWrite(platePin, 0);
       analogWrite(fanControlPin, 0);
       
       // Verifique se já atingiu a temperatura alvo e inicie o timer
@@ -288,7 +288,7 @@ void drawChart() {
 
 void stopAllSystems() {
   pcrRunning = false;
-  analogWrite(relayPin, 0);
+  analogWrite(platePin, 0);
   Serial.println("All systems stopped.");
 
   // Liga o ventilador até a temperatura ficar abaixo de 40 graus
